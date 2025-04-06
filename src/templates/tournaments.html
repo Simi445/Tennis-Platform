@@ -1,0 +1,738 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Tournaments</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+
+<body>
+<div class="tournament-container">
+    <h1 class="page-title">Available Tournaments</h1>
+
+    {% if user.userprofile.role == 'admin' %}
+    <!-- Admin Controls - Only visible to admins -->
+    <div class="admin-controls">
+        <h2 class="admin-section-title">Tournament Management</h2>
+        <button id="add-tournament-btn" class="btn btn-admin">
+            <i class="fas fa-plus"></i> Add New Tournament
+        </button>
+
+        <div class="admin-table-container">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Location</th>
+                        <th>Start Date</th>
+                        <th>End Date</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for tournament in tournaments %}
+                    <tr>
+                        <td>{{ tournament.name }}</td>
+                        <td>{{ tournament.location }}</td>
+                        <td>{{ tournament.start_date|date:"M d, Y" }}</td>
+                        <td>{{ tournament.end_date|date:"M d, Y" }}</td>
+                        <td>
+                            <span class="status-badge status-active">
+                                Active
+                            </span>
+                        </td>
+                        <td class="action-buttons">
+                            <button class="btn-icon edit-tournament" data-id="{{ tournament.id }}" data-name="{{ tournament.name }}" data-location="{{ tournament.location }}" data-start="{{ tournament.start_date|date:'Y-m-d' }}" data-end="{{ tournament.end_date|date:'Y-m-d' }}" data-active="{{ tournament.is_active }}">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn-icon delete-tournament" data-id="{{ tournament.id }}" data-name="{{ tournament.name }}">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="no-data">No tournaments available</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="tournament-grid">
+        {% for tournament in tournaments %}
+            <div class="tournament-card" data-id="{{ tournament.id }}">
+                <div class="card-content">
+                    <h2 class="tournament-name">{{ tournament.name }}</h2>
+                    <div class="tournament-location">
+                        <i class="fas fa-map-marker-alt"></i> {{ tournament.location }}
+                    </div>
+                    <div class="tournament-dates">
+                        <i class="fas fa-calendar-alt"></i> {{ tournament.start_date|date:"M d" }} - {{ tournament.end_date|date:"M d, Y" }}
+                    </div>
+
+                    <div class="card-hover-content">
+                        <p class="tournament-description">
+                            Join the {{ tournament.name }} tournament at {{ tournament.location }}.
+                            Compete with the best players and showcase your skills!
+                        </p>
+                        {% if user.userprofile.role == 'player' %}
+                        <form method="post" action="{% url 'register_tournament' tournament.id %}">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-register">Register Now</button>
+                        </form>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        {% empty %}
+            <div class="no-tournaments">
+                <p>No tournaments are currently available for registration.</p>
+            </div>
+        {% endfor %}
+    </div>
+
+    <!-- Registration Confirmation Popup -->
+    <div id="registration-popup" class="popup">
+        <div class="popup-content">
+            <h3>Confirm Registration</h3>
+            <p>Are you sure you want to register for <span id="tournament-name"></span>?</p>
+            <div class="popup-buttons">
+                <button id="confirm-register" class="btn btn-confirm">Confirm</button>
+                <button id="cancel-register" class="btn btn-cancel">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    {% if user.userprofile.role == 'admin' %}
+    <!-- Tournament Form Popup - Admin Only -->
+    <div id="tournament-form-popup" class="popup">
+        <div class="popup-content tournament-form-content">
+            <div class="popup-header">
+                <h3 id="tournament-form-title">Add New Tournament</h3>
+                <button class="close-popup" id="close-tournament-form">&times;</button>
+            </div>
+            <form id="tournament-form" method="post" action="{% url 'save_tournament' %}">
+                {% csrf_token %}
+                <input type="hidden" id="tournament-id" name="tournament_id" value="">
+
+                <div class="form-group">
+                    <label for="tournament-name-input">Tournament Name</label>
+                    <input type="text" id="tournament-name-input" name="name" class="form-control" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="tournament-location-input">Location</label>
+                    <input type="text" id="tournament-location-input" name="location" class="form-control" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="tournament-start-date">Start Date</label>
+                    <div class="date-input-container">
+                        <input type="date" id="tournament-start-date" name="start_date" class="form-control" required>
+                        <button type="button" class="btn-today" onclick="setToday('tournament-start-date')">Today</button>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="tournament-end-date">End Date</label>
+                    <div class="date-input-container">
+                        <input type="date" id="tournament-end-date" name="end_date" class="form-control" required>
+                        <button type="button" class="btn-today" onclick="setToday('tournament-end-date')">Today</button>
+                    </div>
+                </div>
+
+                <div class="popup-buttons">
+                    <button type="button" id="cancel-tournament-form" class="btn btn-cancel">Cancel</button>
+                    <button type="submit" class="btn btn-confirm">Save Tournament</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Popup - Admin Only -->
+    <div id="delete-confirmation-popup" class="popup">
+        <div class="popup-content">
+            <h3>Confirm Deletion</h3>
+            <p>Are you sure you want to delete the tournament: <span id="delete-tournament-name"></span>?</p>
+            <p class="warning-text">This action cannot be undone.</p>
+            <form id="delete-tournament-form" method="post" action="{% url 'delete_tournament' 0 %}">
+                {% csrf_token %}
+                <input type="hidden" id="delete-tournament-id" name="tournament_id" value="">
+                <div class="popup-buttons">
+                    <button type="button" id="cancel-delete" class="btn btn-cancel">Cancel</button>
+                    <button type="submit" class="btn btn-danger">Delete</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+    .tournament-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 30px 20px;
+    }
+
+    .page-title {
+        font-size: 28px;
+        margin-bottom: 30px;
+        color: #333;
+        text-align: center;
+    }
+
+    .tournament-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 25px;
+    }
+
+    .tournament-card {
+        background-color: white;
+        border-radius: 8px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+        transition: transform 0.3s, box-shadow 0.3s;
+        position: relative;
+        height: 200px;
+    }
+
+    .tournament-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+    }
+
+    .card-content {
+        padding: 20px;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .tournament-name {
+        font-size: 20px;
+        margin-bottom: 10px;
+        color: #4CAF50;
+    }
+
+    .tournament-location, .tournament-dates {
+        color: #666;
+        margin-bottom: 8px;
+        font-size: 14px;
+    }
+
+    .tournament-location i, .tournament-dates i {
+        margin-right: 5px;
+        color: #4CAF50;
+    }
+
+    .card-hover-content {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(255, 255, 255, 0.95);
+        padding: 20px;
+        opacity: 0;
+        transition: opacity 0.3s;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+    }
+
+    .tournament-card:hover .card-hover-content {
+        opacity: 1;
+    }
+
+    .tournament-description {
+        margin-bottom: 20px;
+        color: #333;
+        font-size: 14px;
+        line-height: 1.5;
+    }
+
+    .btn {
+        display: inline-block;
+        padding: 10px 20px;
+        border-radius: 4px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background-color 0.3s;
+        border: none;
+        font-size: 14px;
+        text-decoration: none;
+    }
+
+    .btn-register {
+        background-color: #4CAF50;
+        color: white;
+    }
+
+    .btn-register:hover {
+        background-color: #388E3C;
+    }
+
+    .btn-registered {
+        background-color: #9E9E9E;
+        color: white;
+        cursor: not-allowed;
+    }
+
+    .btn-login {
+        background-color: #2196F3;
+        color: white;
+    }
+
+    .btn-login:hover {
+        background-color: #1976D2;
+    }
+
+    .no-tournaments {
+        grid-column: 1 / -1;
+        text-align: center;
+        padding: 40px;
+        background-color: white;
+        border-radius: 8px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        color: #666;
+    }
+
+    /* Popup styles */
+    .popup {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        z-index: 1000;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .popup-content {
+        background-color: white;
+        padding: 30px;
+        border-radius: 8px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+        max-width: 400px;
+        width: 90%;
+        text-align: center;
+    }
+
+    .tournament-form-content {
+        max-width: 500px;
+        padding: 0;
+        text-align: left;
+    }
+
+    .popup-header {
+        background-color: #4CAF50;
+        color: white;
+        padding: 15px 20px;
+        border-top-left-radius: 8px;
+        border-top-right-radius: 8px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .popup-header h3 {
+        margin: 0;
+        font-size: 18px;
+    }
+
+    .close-popup {
+        background: none;
+        border: none;
+        color: white;
+        font-size: 24px;
+        cursor: pointer;
+        line-height: 1;
+    }
+
+    #tournament-form {
+        padding: 20px;
+    }
+
+    .popup-content h3 {
+        margin-bottom: 15px;
+        color: #333;
+    }
+
+    .popup-content p {
+        margin-bottom: 20px;
+        color: #666;
+    }
+
+    .warning-text {
+        color: #F44336;
+        font-weight: 500;
+    }
+
+    .popup-buttons {
+        display: flex;
+        justify-content: center;
+        gap: 15px;
+        margin-top: 20px;
+    }
+
+    .btn-confirm {
+        background-color: #4CAF50;
+        color: white;
+    }
+
+    .btn-confirm:hover {
+        background-color: #388E3C;
+    }
+
+    .btn-cancel {
+        background-color: #9E9E9E;
+        color: white;
+    }
+
+    .btn-cancel:hover {
+        background-color: #757575;
+    }
+
+    .btn-danger {
+        background-color: #F44336;
+        color: white;
+    }
+
+    .btn-danger:hover {
+        background-color: #D32F2F;
+    }
+
+    /* Animation for popup */
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+
+    .popup.active {
+        display: flex;
+        animation: fadeIn 0.3s;
+    }
+
+    /* Admin section styles */
+    .admin-controls {
+        background-color: white;
+        border-radius: 8px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        padding: 20px;
+        margin-bottom: 30px;
+    }
+
+    .admin-section-title {
+        font-size: 20px;
+        color: #4CAF50;
+        margin-bottom: 15px;
+        display: flex;
+        align-items: center;
+    }
+
+    .admin-section-title::before {
+        content: "\f085";
+        font-family: "Font Awesome 5 Free";
+        font-weight: 900;
+        margin-right: 10px;
+        color: #4CAF50;
+    }
+
+    .btn-admin {
+        background-color: #4CAF50;
+        color: white;
+        margin-bottom: 20px;
+    }
+
+    .btn-admin:hover {
+        background-color: #388E3C;
+    }
+
+    .admin-table-container {
+        overflow-x: auto;
+    }
+
+    .admin-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .admin-table th, .admin-table td {
+        padding: 12px 15px;
+        text-align: left;
+        border-bottom: 1px solid #eee;
+    }
+
+    .admin-table th {
+        background-color: #f5f5f5;
+        font-weight: 500;
+        color: #555;
+    }
+
+    .admin-table tr:last-child td {
+        border-bottom: none;
+    }
+
+    .admin-table tr:hover td {
+        background-color: #f9f9f9;
+    }
+
+    .status-badge {
+        display: inline-block;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 12px;
+        font-weight: 500;
+        color: white;
+    }
+
+    .status-active {
+        background-color: #4CAF50;
+    }
+
+    .status-inactive {
+        background-color: #9E9E9E;
+    }
+
+    .action-buttons {
+        display: flex;
+        gap: 8px;
+    }
+
+    .btn-icon {
+        width: 32px;
+        height: 32px;
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: none;
+        cursor: pointer;
+        transition: background-color 0.3s;
+        color: white;
+    }
+
+    .edit-tournament {
+        background-color: #2196F3;
+    }
+
+    .edit-tournament:hover {
+        background-color: #1976D2;
+    }
+
+    .delete-tournament {
+        background-color: #F44336;
+    }
+
+    .delete-tournament:hover {
+        background-color: #D32F2F;
+    }
+
+    .no-data {
+        text-align: center;
+        padding: 20px;
+        color: #666;
+    }
+
+    /* Form styles */
+    .form-group {
+        margin-bottom: 15px;
+    }
+
+    .form-group label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: 500;
+        color: #4CAF50;
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 14px;
+    }
+
+    .form-control:focus {
+        outline: none;
+        border-color: #4CAF50;
+        box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2);
+    }
+
+    .date-input-container {
+        display: flex;
+        gap: 10px;
+    }
+
+    .btn-today {
+        padding: 10px;
+        background-color: #f5f5f5;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
+        transition: background-color 0.3s;
+    }
+
+    .btn-today:hover {
+        background-color: #e0e0e0;
+    }
+
+    /* Success message */
+    .success-message {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        background-color: #4CAF50;
+        color: white;
+        padding: 15px 25px;
+        border-radius: 4px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        z-index: 1000;
+        display: none;
+    }
+
+    .success-message.active {
+        display: block;
+        animation: fadeIn 0.3s;
+    }
+
+    @media (max-width: 768px) {
+        .admin-table th, .admin-table td {
+            padding: 8px 10px;
+        }
+
+        .btn-icon {
+            width: 28px;
+            height: 28px;
+        }
+    }
+</style>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Only run admin scripts if user is admin
+        {% if user.userprofile.role == 'admin' %}
+
+        // Add Tournament Button
+        const addTournamentBtn = document.getElementById('add-tournament-btn');
+        const tournamentFormPopup = document.getElementById('tournament-form-popup');
+        const closeTournamentForm = document.getElementById('close-tournament-form');
+        const cancelTournamentForm = document.getElementById('cancel-tournament-form');
+        const tournamentForm = document.getElementById('tournament-form');
+
+        // Delete Tournament
+        const deleteConfirmationPopup = document.getElementById('delete-confirmation-popup');
+        const cancelDelete = document.getElementById('cancel-delete');
+        const deleteTournamentForm = document.getElementById('delete-tournament-form');
+        const deleteTournamentId = document.getElementById('delete-tournament-id');
+        const deleteTournamentName = document.getElementById('delete-tournament-name');
+
+        // Edit Tournament Buttons
+        const editTournamentButtons = document.querySelectorAll('.edit-tournament');
+
+        // Set today's date as default for new tournaments
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('tournament-start-date').value = today;
+
+        // Set default end date as 7 days from today
+        const nextWeek = new Date();
+        nextWeek.setDate(nextWeek.getDate() + 7);
+        document.getElementById('tournament-end-date').value = nextWeek.toISOString().split('T')[0];
+
+        // Add Tournament
+        addTournamentBtn.addEventListener('click', function() {
+            // Reset form
+            tournamentForm.reset();
+            document.getElementById('tournament-id').value = '';
+            document.getElementById('tournament-form-title').textContent = 'Add New Tournament';
+            document.getElementById('tournament-start-date').value = today;
+            document.getElementById('tournament-end-date').value = nextWeek.toISOString().split('T')[0];
+
+            // Show popup
+            tournamentFormPopup.classList.add('active');
+        });
+
+        // Close Tournament Form
+        function closeTournamentFormPopup() {
+            tournamentFormPopup.classList.remove('active');
+        }
+
+        closeTournamentForm.addEventListener('click', closeTournamentFormPopup);
+        cancelTournamentForm.addEventListener('click', closeTournamentFormPopup);
+
+        // Edit Tournament
+        editTournamentButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const id = this.getAttribute('data-id');
+                const name = this.getAttribute('data-name');
+                const location = this.getAttribute('data-location');
+                const startDate = this.getAttribute('data-start');
+                const endDate = this.getAttribute('data-end');
+                const isActive = this.getAttribute('data-active');
+
+                // Fill form with tournament data
+                document.getElementById('tournament-id').value = id;
+                document.getElementById('tournament-name-input').value = name;
+                document.getElementById('tournament-location-input').value = location;
+                document.getElementById('tournament-start-date').value = startDate;
+                document.getElementById('tournament-end-date').value = endDate;
+                document.getElementById('tournament-status').value = isActive === 'True' ? 'true' : 'false';
+
+                // Update title
+                document.getElementById('tournament-form-title').textContent = 'Edit Tournament';
+
+                // Show popup
+                tournamentFormPopup.classList.add('active');
+            });
+        });
+
+        // Delete Tournament
+        const deleteTournamentButtons = document.querySelectorAll('.delete-tournament');
+
+        deleteTournamentButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const id = this.getAttribute('data-id');
+                const name = this.getAttribute('data-name');
+
+                // Update delete form
+                deleteTournamentId.value = id;
+                deleteTournamentName.textContent = name;
+                deleteTournamentForm.action = "{% url 'delete_tournament' 0 %}".replace('0', id);
+
+                // Show popup
+                deleteConfirmationPopup.classList.add('active');
+            });
+        });
+
+        // Close Delete Confirmation
+        function closeDeletePopup() {
+            deleteConfirmationPopup.classList.remove('active');
+        }
+
+        cancelDelete.addEventListener('click', closeDeletePopup);
+
+        {% endif %}
+    });
+
+    // Set today's date for date inputs
+    function setToday(inputId) {
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById(inputId).value = today;
+    }
+</script>
+</body>
