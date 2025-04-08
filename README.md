@@ -15,5 +15,5 @@ A Django-based web application for managing tennis tournaments, players, referee
 
 - Python 3.x
 - Django
-- SQLite / PostgreSQL
-- HTML, CSS, JS (with Bootstrap)
+- SQLite
+- HTML, CSS, JS
